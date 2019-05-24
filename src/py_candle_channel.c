@@ -105,11 +105,14 @@ PyObject* py_candle_channel_write(py_candle_channel* self, PyObject* args)
 {
   candle_frame_t frame;
   const uint8_t* buf;
-  size_t len;
+  int len;
   bool res;
 
   if (!PyArg_ParseTuple(args, "ky#", &frame.can_id, &buf, &len))
     return Py_BuildValue("O", Py_False);
+
+  if (len > 8)
+    return PyErr_Format(PyExc_ValueError, "Data length %u exceeds 8 bytes.", len);
 
   memcpy(frame.data, buf, len);
   frame.can_dlc = (uint8_t)len;
@@ -146,7 +149,7 @@ PyObject* py_candle_channel_read(py_candle_channel* self, PyObject* args)
     candle_frame_type(&frame),
     candle_frame_id(&frame),
     frame.data,
-    frame.can_dlc,
+    (int)frame.can_dlc,
     candle_frame_is_extended_id(&frame) ? Py_True : Py_False,
     candle_frame_timestamp_us(&frame)
   );
