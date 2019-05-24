@@ -2,6 +2,8 @@
 
 Python wrapper for the candle (gs_usb) windows driver which is published [here](https://github.com/HubertD/cangaroo/tree/master/src/driver/CandleApiDriver/api).
 
+Used to communicate with candleLight, [CANable](https://canable.io/) (with candleLight [firmware](https://github.com/HubertD/candleLight_fw)) CAN-USB adapters.
+
 ## Example usage
 
 ```python
