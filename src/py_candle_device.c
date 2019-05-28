@@ -3,6 +3,56 @@
 #include "fifo.h"
 #include <string.h>
 
+// Adds frame to a specified channel FIFO
+void py_candle_device_rx_frame(py_candle_device* device, candle_frame_t* frame)
+{
+  uint8_t ch = frame->channel;
+
+  // Sanity check and verify that channel is open
+  if (ch < CANDLE_MAX_CHANNELS && device->_channels[ch])
+  {
+    fifo_t* fifo = device->_channels[ch]->_fifo;
+
+    // If fifo is full, oldest frames will be pushed out
+    fifo_add_force(fifo, frame);
+  }
+}
+
+// Compares overflowing frame timestamps
+bool candle_timestamp_cmp(candle_frame_t* a, candle_frame_t* b)
+{
+  // Maximum difference of timestamps to consider it an overflow
+  static const uint32_t max_diff = 100000;
+
+  return (b->timestamp_us - a->timestamp_us) < max_diff;
+}
+
+// simple insertion sort algorithm is best suited for small arrays such as rx reorder queue
+// inserts item into array in ascending order
+void insertionSort(candle_frame_t* frames, size_t n, candle_frame_t* frame)
+{
+  size_t i, j;
+  for (i = 0; i < n; ++i) {
+    // new frame is earlier than frames[i]
+    if (candle_timestamp_cmp(frame, &frames[i])) {
+      // move all frames forward
+      for (j = n; j > i; --j)
+        frames[j] = frames[j-1];
+
+      // insert new frame
+      frames[i] = *frame;
+
+      // done
+      return;
+    }
+  }
+
+  // new frame is latest of all
+  frames[i] = *frame;
+}
+
+#define RX_REORDER_QUEUE_SIZE 10
+
 // RX data processing thread is required for multiple reasons:
 // a) winusb api returns frames out of order if multiple frames are
 //    received between candle_frame_read calls. Some protocols require
@@ -14,27 +64,27 @@
 DWORD WINAPI py_candle_device_rx_thread(LPVOID lpParam) 
 {
   py_candle_device* device = (py_candle_device*)lpParam;
+  candle_frame_t frames[RX_REORDER_QUEUE_SIZE];
+  size_t received_frames = 0;
 
   while (!device->_rx_thread_stop_req) {
+    received_frames = 0;
+
+    // Read first frame with timeout so thread sleeps instead of wasting cpu cycles
+    if (!candle_frame_read(device->_handle, &frames[received_frames++], CANDLE_RX_THREAD_INTERVAL))
+      continue;
+
+    // Read remaining frames that are in rx buffer and need to be reordered
     candle_frame_t frame;
-
-    // Read with timeout, but keep it small to react to thread stop requests in time
-    bool res = candle_frame_read(device->_handle, &frame, CANDLE_RX_THREAD_INTERVAL);
-
-    // if res is false its probably timeout
-    if (res)
-    {
-      uint8_t ch = frame.channel;
-
-      // Sanity check and verify that channel is open
-      if (ch < CANDLE_MAX_CHANNELS && device->_channels[ch])
-      {
-        fifo_t* fifo = device->_channels[ch]->_fifo;
-
-        // If fifo is full, oldest frames will be pushed out
-        fifo_add_force(fifo, &frame);
-      }
+    while (candle_frame_read(device->_handle, &frame, 0) && received_frames < RX_REORDER_QUEUE_SIZE) {
+      // sort frame into array
+      insertionSort(frames, received_frames, &frame);
+      ++received_frames;
     }
+
+    // push sorted frames to FIFOs
+    for (size_t i = 0; i < received_frames; ++i)
+      py_candle_device_rx_frame(device, &frames[i]);
   }
 
   return 0;
