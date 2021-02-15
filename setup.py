@@ -44,6 +44,7 @@ setup(
       "src/candle_api/candle.c",
       "src/candle_api/candle_ctrl_req.c"
     ],
+    include_dirs=['candle_api'],
     libraries=[
       "SetupApi",
       "Ole32",
