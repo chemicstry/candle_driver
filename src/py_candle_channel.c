@@ -105,7 +105,7 @@ PyObject* py_candle_channel_write(py_candle_channel* self, PyObject* args)
 {
   candle_frame_t frame;
   const uint8_t* buf;
-  int len;
+  Py_ssize_t len;
   bool res;
 
   if (!PyArg_ParseTuple(args, "ky#", &frame.can_id, &buf, &len))
@@ -149,7 +149,7 @@ PyObject* py_candle_channel_read(py_candle_channel* self, PyObject* args)
     candle_frame_type(&frame),
     candle_frame_id(&frame),
     frame.data,
-    (int)frame.can_dlc,
+    (Py_ssize_t)frame.can_dlc,
     candle_frame_is_extended_id(&frame) ? Py_True : Py_False,
     candle_frame_timestamp_us(&frame)
   );

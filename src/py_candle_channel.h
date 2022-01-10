@@ -1,6 +1,7 @@
 #ifndef _PY_CANDLE_CHANNEL_H_
 #define _PY_CANDLE_CHANNEL_H_
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <structmember.h>
 #include "candle_api/candle.h"

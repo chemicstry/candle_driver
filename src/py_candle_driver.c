@@ -1,3 +1,4 @@
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "py_candle_channel.h"
 #include "py_candle_device.h"
